@@ -172,10 +172,13 @@
         async function carregarCodigos() {
             try {
                 const response = await fetch('/api/codes');
-                listaGlobal = await response.json();
+                const data = await response.json();
+                listaGlobal = Array.isArray(data) ? data : [];
                 renderizarLista(listaGlobal);
             } catch (err) {
                 console.error('Erro ao carregar:', err);
+                listaGlobal = [];
+                renderizarLista(listaGlobal);
             }
         }
 
@@ -183,10 +186,12 @@
             const container = document.getElementById('qrList');
             container.innerHTML = '';
 
-            document.getElementById('statTotal').innerText = codigos.length;
-            document.getElementById('statRoutes').innerText = codigos.length;
+            const total = Array.isArray(codigos) ? codigos.length : 0;
 
-            if (codigos.length === 0) {
+            document.getElementById('statTotal').innerText = total;
+            document.getElementById('statRoutes').innerText = total;
+
+            if (total === 0) {
                 container.innerHTML = '<div class="bg-[#1e293b]/40 border border-gray-800 p-6 rounded-2xl text-center text-gray-400 text-sm">Nenhum QR code cadastrado.</div>';
                 return;
             }
@@ -337,7 +342,6 @@
                     document.getElementById('qrForm').reset();
                     const linkRedirecionamento = `${window.location.origin}/r/${id}`;
 
-                    // Também atualiza o preview da direita
                     const containerQR = document.getElementById('qrcode');
                     containerQR.innerHTML = '';
                     new QRCode(containerQR, { text: linkRedirecionamento, width: 140, height: 140 });
