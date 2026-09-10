@@ -13,25 +13,22 @@ app.use(express.static(path.join(__dirname, 'public')));
 const uri = process.env.MONGODB_URI || process.env.DATABASE_URL;
 const client = new MongoClient(uri);
 
-let db, qrcodesCollection;
+let dbInstance = null;
 
-async function connectDB() {
-    try {
+async function getCollection() {
+    if (!dbInstance) {
         await client.connect();
-        db = client.db('qr-manager');
-        qrcodesCollection = db.collection('qrcodes');
-        console.log('Conectado ao MongoDB Atlas com sucesso!');
-    } catch (err) {
-        console.error('Erro ao conectar ao MongoDB:', err);
+        dbInstance = client.db('qr-manager');
     }
+    return dbInstance.collection('qrcodes');
 }
-connectDB();
 
 // Rota de Redirecionamento Direto
 app.get('/r/:id', async (req, res) => {
     const { id } = req.params;
     try {
-        const doc = await qrcodesCollection.findOne({ id });
+        const collection = await getCollection();
+        const doc = await collection.findOne({ id });
         if (doc) {
             return res.redirect(302, doc.url);
         } else {
@@ -46,7 +43,8 @@ app.get('/r/:id', async (req, res) => {
 // Listar todos ordenados do mais recente para o mais antigo
 app.get('/api/codes', async (req, res) => {
     try {
-        const codes = await qrcodesCollection.find({}).sort({ created_at: -1 }).toArray();
+        const collection = await getCollection();
+        const codes = await collection.find({}).sort({ created_at: -1 }).toArray();
         res.json(codes);
     } catch (err) {
         console.error("Erro na API /api/codes:", err.message);
@@ -62,6 +60,7 @@ app.post('/api/codes', async (req, res) => {
     }
 
     try {
+        const collection = await getCollection();
         const filter = { id };
         const update = {
             $set: {
@@ -72,7 +71,7 @@ app.post('/api/codes', async (req, res) => {
         };
         const options = { upsert: true, returnDocument: 'after' };
         
-        const result = await qrcodesCollection.findOneAndUpdate(filter, update, options);
+        const result = await collection.findOneAndUpdate(filter, update, options);
         res.json({ success: true, data: result || { id, url } });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -83,7 +82,8 @@ app.post('/api/codes', async (req, res) => {
 app.delete('/api/codes/:id', async (req, res) => {
     const { id } = req.params;
     try {
-        const result = await qrcodesCollection.deleteOne({ id });
+        const collection = await getCollection();
+        const result = await collection.deleteOne({ id });
         if (result.deletedCount === 0) {
             return res.status(404).json({ error: 'QR Code não encontrado.' });
         }
