@@ -31,10 +31,10 @@ app.get('/r/:id', async (req, res) => {
     }
 });
 
-// Listar todos com segurança
+// Listar todos com segurança total
 app.get('/api/codes', async (req, res) => {
     try {
-        const result = await pool.query('SELECT id, url, created_at FROM qrcodes ORDER BY created_at DESC');
+        const result = await pool.query('SELECT * FROM qrcodes ORDER BY created_at DESC');
         res.json(result.rows);
     } catch (err) {
         console.error("Erro na API /api/codes:", err.message);
@@ -42,7 +42,7 @@ app.get('/api/codes', async (req, res) => {
     }
 });
 
-// Criar ou Atualizar (Upsert) sem depender de coluna label física se ela não existir
+// Criar ou Atualizar (Upsert)
 app.post('/api/codes', async (req, res) => {
     const { id, url } = req.body;
     if (!id || !url) {
