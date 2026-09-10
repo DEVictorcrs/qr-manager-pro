@@ -1,0 +1,1 @@
+# qr-manager-pro
