@@ -1,7 +1,8 @@
 const express = require('express');
 const cors = require('cors');
-const fs = require('fs');
+const { MongoClient } = require('mongodb');
 const path = require('path');
+require('dotenv').config();
 
 const app = express();
 app.use(cors());
@@ -9,95 +10,88 @@ app.use(express.json());
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Caminho do arquivo JSON que servirá como banco de dados local
-const dbFile = path.join(__dirname, 'database.json');
+const uri = process.env.MONGODB_URI || process.env.DATABASE_URL;
+const client = new MongoClient(uri);
 
-// Função auxiliar para ler o banco
-function readDb() {
-    if (!fs.existsSync(dbFile)) {
-        fs.writeFileSync(dbFile, JSON.stringify([], null, 2));
-    }
+let db, qrcodesCollection;
+
+async function connectDB() {
     try {
-        const data = fs.readFileSync(dbFile, 'utf8');
-        return JSON.parse(data);
+        await client.connect();
+        db = client.db('qr-manager');
+        qrcodesCollection = db.collection('qrcodes');
+        console.log('Conectado ao MongoDB Atlas com sucesso!');
     } catch (err) {
-        return [];
+        console.error('Erro ao conectar ao MongoDB:', err);
     }
 }
-
-// Função auxiliar para escrever no banco
-function writeDb(data) {
-    fs.writeFileSync(dbFile, JSON.stringify(data, null, 2));
-}
-
-// Inicializa o arquivo ao subir o servidor
-readDb();
+connectDB();
 
 // Rota de Redirecionamento Direto
-app.get('/r/:id', (req, res) => {
+app.get('/r/:id', async (req, res) => {
     const { id } = req.params;
-    const codes = readDb();
-    const found = codes.find(c => c.id === id);
-    
-    if (found) {
-        return res.redirect(302, found.url);
-    } else {
-        return res.status(404).send('QR Code não encontrado ou expirado.');
+    try {
+        const doc = await qrcodesCollection.findOne({ id });
+        if (doc) {
+            return res.redirect(302, doc.url);
+        } else {
+            return res.status(404).send('QR Code não encontrado ou expirado.');
+        }
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Erro interno no servidor.');
     }
 });
 
-// Listar todos
-app.get('/api/codes', (req, res) => {
-    const codes = readDb();
-    // Ordena do mais recente para o mais antigo com base na data de criação
-    codes.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    res.json(codes);
+// Listar todos ordenados do mais recente para o mais antigo
+app.get('/api/codes', async (req, res) => {
+    try {
+        const codes = await qrcodesCollection.find({}).sort({ created_at: -1 }).toArray();
+        res.json(codes);
+    } catch (err) {
+        console.error("Erro na API /api/codes:", err.message);
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Criar ou Atualizar (Upsert)
-app.post('/api/codes', (req, res) => {
+app.post('/api/codes', async (req, res) => {
     const { id, url } = req.body;
     if (!id || !url) {
         return res.status(400).json({ error: 'ID e URL são obrigatórios.' });
     }
 
-    const codes = readDb();
-    const existingIndex = codes.findIndex(c => c.id === id);
-    
-    let record;
-    if (existingIndex >= 0) {
-        // Atualiza
-        codes[existingIndex].url = url;
-        record = codes[existingIndex];
-    } else {
-        // Cria novo
-        record = {
-            id,
-            url,
-            created_at: new Date().toISOString()
+    try {
+        const filter = { id };
+        const update = {
+            $set: {
+                id,
+                url,
+                created_at: new Date()
+            }
         };
-        codes.push(record);
+        const options = { upsert: true, returnDocument: 'after' };
+        
+        const result = await qrcodesCollection.findOneAndUpdate(filter, update, options);
+        res.json({ success: true, data: result || { id, url } });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
-
-    writeDb(codes);
-    res.json({ success: true, data: record });
 });
 
 // Deletar QR Code
-app.delete('/api/codes/:id', (req, res) => {
+app.delete('/api/codes/:id', async (req, res) => {
     const { id } = req.params;
-    let codes = readDb();
-    const initialLength = codes.length;
-    
-    codes = codes.filter(c => c.id !== id);
-    
-    if (codes.length === initialLength) {
-        return res.status(404).json({ error: 'QR Code não encontrado.' });
+    try {
+        const result = await qrcodesCollection.deleteOne({ id });
+        if (result.deletedCount === 0) {
+            return res.status(404).json({ error: 'QR Code não encontrado.' });
+        }
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
-
-    writeDb(codes);
-    res.json({ success: true });
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`SERVIDOR JSON RODANDO NA PORTA ${PORT} COM SUCESSO!`));
+app.listen(PORT, () => console.log(`SERVIDOR MONGODB RODANDO NA PORTA ${PORT} COM SUCESSO!`));
