@@ -31,32 +31,33 @@ app.get('/r/:id', async (req, res) => {
     }
 });
 
-// Listar todos
+// Listar todos com segurança
 app.get('/api/codes', async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM qrcodes ORDER BY created_at DESC');
+        const result = await pool.query('SELECT id, url, created_at FROM qrcodes ORDER BY created_at DESC');
         res.json(result.rows);
     } catch (err) {
+        console.error("Erro na API /api/codes:", err.message);
         res.status(500).json({ error: err.message });
     }
 });
 
-// Criar ou Atualizar (Upsert)
+// Criar ou Atualizar (Upsert) sem depender de coluna label física se ela não existir
 app.post('/api/codes', async (req, res) => {
-    const { id, label, url } = req.body;
+    const { id, url } = req.body;
     if (!id || !url) {
         return res.status(400).json({ error: 'ID e URL são obrigatórios.' });
     }
 
     try {
         const query = `
-            INSERT INTO qrcodes (id, label, url) 
-            VALUES ($1, $2, $3) 
+            INSERT INTO qrcodes (id, url) 
+            VALUES ($1, $2) 
             ON CONFLICT (id) 
-            DO UPDATE SET url = EXCLUDED.url, label = EXCLUDED.label 
+            DO UPDATE SET url = EXCLUDED.url 
             RETURNING *;
         `;
-        const result = await pool.query(query, [id, label || id, url]);
+        const result = await pool.query(query, [id, url]);
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
         res.status(500).json({ error: err.message });
