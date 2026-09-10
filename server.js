@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const sqlite3 = require('sqlite3').verbose();
+const fs = require('fs');
 const path = require('path');
 
 const app = express();
@@ -9,49 +9,49 @@ app.use(express.json());
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Inicializa o banco de dados SQLite local (arquivo database.sqlite)
-const dbFile = path.join(__dirname, 'database.sqlite');
-const db = new sqlite3.Database(dbFile, (err) => {
-    if (err) {
-        console.error('Erro ao abrir o SQLite:', err.message);
-    } else {
-        console.log('Conectado ao banco SQLite local com sucesso!');
-        // Cria a tabela qrcodes se ela não existir
-        db.run(`
-            CREATE TABLE IF NOT EXISTS qrcodes (
-                id TEXT PRIMARY KEY,
-                url TEXT NOT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-        `);
+// Caminho do arquivo JSON que servirá como banco de dados local
+const dbFile = path.join(__dirname, 'database.json');
+
+// Função auxiliar para ler o banco
+function readDb() {
+    if (!fs.existsSync(dbFile)) {
+        fs.writeFileSync(dbFile, JSON.stringify([], null, 2));
     }
-});
+    try {
+        const data = fs.readFileSync(dbFile, 'utf8');
+        return JSON.parse(data);
+    } catch (err) {
+        return [];
+    }
+}
+
+// Função auxiliar para escrever no banco
+function writeDb(data) {
+    fs.writeFileSync(dbFile, JSON.stringify(data, null, 2));
+}
+
+// Inicializa o arquivo ao subir o servidor
+readDb();
 
 // Rota de Redirecionamento Direto
 app.get('/r/:id', (req, res) => {
     const { id } = req.params;
-    db.get('SELECT url FROM qrcodes WHERE id = ?', [id], (err, row) => {
-        if (err) {
-            console.error(err);
-            return res.status(500).send('Erro interno no servidor.');
-        }
-        if (row) {
-            return res.redirect(302, row.url);
-        } else {
-            return res.status(404).send('QR Code não encontrado ou expirado.');
-        }
-    });
+    const codes = readDb();
+    const found = codes.find(c => c.id === id);
+    
+    if (found) {
+        return res.redirect(302, found.url);
+    } else {
+        return res.status(404).send('QR Code não encontrado ou expirado.');
+    }
 });
 
 // Listar todos
 app.get('/api/codes', (req, res) => {
-    db.all('SELECT * FROM qrcodes ORDER BY created_at DESC', [], (err, rows) => {
-        if (err) {
-            console.error("Erro na API /api/codes:", err.message);
-            return res.status(500).json({ error: err.message });
-        }
-        res.json(rows);
-    });
+    const codes = readDb();
+    // Ordena do mais recente para o mais antigo com base na data de criação
+    codes.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    res.json(codes);
 });
 
 // Criar ou Atualizar (Upsert)
@@ -61,31 +61,43 @@ app.post('/api/codes', (req, res) => {
         return res.status(400).json({ error: 'ID e URL são obrigatórios.' });
     }
 
-    const query = `
-        INSERT INTO qrcodes (id, url) VALUES (?, ?)
-        ON CONFLICT(id) DO UPDATE SET url = excluded.url
-    `;
+    const codes = readDb();
+    const existingIndex = codes.findIndex(c => c.id === id);
     
-    db.run(query, [id, url], function(err) {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-        db.get('SELECT * FROM qrcodes WHERE id = ?', [id], (err, row) => {
-            res.json({ success: true, data: row });
-        });
-    });
+    let record;
+    if (existingIndex >= 0) {
+        // Atualiza
+        codes[existingIndex].url = url;
+        record = codes[existingIndex];
+    } else {
+        // Cria novo
+        record = {
+            id,
+            url,
+            created_at: new Date().toISOString()
+        };
+        codes.push(record);
+    }
+
+    writeDb(codes);
+    res.json({ success: true, data: record });
 });
 
 // Deletar QR Code
 app.delete('/api/codes/:id', (req, res) => {
     const { id } = req.params;
-    db.run('DELETE FROM qrcodes WHERE id = ?', [id], function(err) {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-        res.json({ success: true });
-    });
+    let codes = readDb();
+    const initialLength = codes.length;
+    
+    codes = codes.filter(c => c.id !== id);
+    
+    if (codes.length === initialLength) {
+        return res.status(404).json({ error: 'QR Code não encontrado.' });
+    }
+
+    writeDb(codes);
+    res.json({ success: true });
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`SERVIDOR RODANDO NA PORTA ${PORT} COM SUCESSO!`));
+app.listen(PORT, () => console.log(`SERVIDOR JSON RODANDO NA PORTA ${PORT} COM SUCESSO!`));
