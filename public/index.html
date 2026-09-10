@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Manager Pro - Painel Central</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+
+<body class="bg-[#0b0f19] text-gray-100 min-h-screen font-sans antialiased">
+
+    <!-- Topbar -->
+    <header
+        class="border-b border-gray-800 bg-[#0f172a]/50 backdrop-blur sticky top-0 z-50 px-6 py-4 flex justify-between items-center">
+        <div class="flex items-center gap-3">
+            <div class="bg-indigo-600 p-2 rounded-xl text-white shadow-lg shadow-indigo-600/30">
+                <i class="ph ph-qr-code text-2xl"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-lg tracking-wide">QR Manager Pro</h1>
+                <p class="text-xs text-gray-400">Painel Central de Redirecionamento</p>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-6 py-8">
+
+        <!-- Cards de Estatísticas -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div class="bg-[#1e293b]/60 border border-gray-800 p-5 rounded-2xl flex justify-between items-center">
+                <div>
+                    <p class="text-xs text-gray-400 uppercase tracking-wider font-medium">QR Codes Ativos</p>
+                    <h3 id="statTotal" class="text-2xl font-bold mt-1 text-white">0</h3>
+                </div>
+                <div class="bg-indigo-500/10 text-indigo-400 p-3 rounded-xl"><i class="ph ph-stack text-xl"></i></div>
+            </div>
+            <div class="bg-[#1e293b]/60 border border-gray-800 p-5 rounded-2xl flex justify-between items-center">
+                <div>
+                    <p class="text-xs text-gray-400 uppercase tracking-wider font-medium">Status do Banco</p>
+                    <h3 class="text-2xl font-bold mt-1 text-emerald-400">Online</h3>
+                </div>
+                <div class="bg-emerald-500/10 text-emerald-400 p-3 rounded-xl"><i class="ph ph-lightning text-xl"></i>
+                </div>
+            </div>
+            <div class="bg-[#1e293b]/60 border border-gray-800 p-5 rounded-2xl flex justify-between items-center">
+                <div>
+                    <p class="text-xs text-gray-400 uppercase tracking-wider font-medium">Rotas Mapeadas</p>
+                    <h3 id="statRoutes" class="text-2xl font-bold mt-1 text-white">0</h3>
+                </div>
+                <div class="bg-blue-500/10 text-blue-400 p-3 rounded-xl"><i class="ph ph-activity text-xl"></i></div>
+            </div>
+            <div class="bg-[#1e293b]/60 border border-gray-800 p-5 rounded-2xl flex justify-between items-center">
+                <div>
+                    <p class="text-xs text-gray-400 uppercase tracking-wider font-medium">Modo de Operação</p>
+                    <h3 class="text-2xl font-bold mt-1 text-indigo-400">Dinâmico</h3>
+                </div>
+                <div class="bg-purple-500/10 text-purple-400 p-3 rounded-xl"><i class="ph ph-globe text-xl"></i></div>
+            </div>
+        </div>
+
+        <!-- Layout Principal -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+            <!-- Coluna Esquerda: Listagem e Busca -->
+            <div class="lg:col-span-2 space-y-6">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                        <h2 class="text-xl font-bold tracking-tight">QR Codes Ativos</h2>
+                        <p class="text-sm text-gray-400">Gerencie e teste seus links de redirecionamento dinâmico.</p>
+                    </div>
+                    <div class="w-full sm:w-72">
+                        <input type="text" id="searchInput" onkeyup="filtrarCodigos()"
+                            placeholder="Buscar por ID, Label ou URL..."
+                            class="w-full bg-[#1e293b]/60 border border-gray-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <div id="qrList" class="space-y-4">
+                    <p class="text-gray-500 text-sm">Carregando códigos...</p>
+                </div>
+            </div>
+
+            <!-- Coluna Direita: Gerador / Formulário -->
+            <div class="bg-[#1e293b]/40 border border-gray-800 p-6 rounded-2xl h-fit sticky top-24 space-y-6">
+                <div>
+                    <h3 class="font-bold text-lg flex items-center gap-2">
+                        <i class="ph ph-plus-circle text-indigo-500"></i> Gerador Instantâneo
+                    </h3>
+                    <p class="text-xs text-gray-400 mt-0.5">Cadastre ou edite uma rota dinâmica.</p>
+                </div>
+
+                <form id="qrForm" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-gray-400 mb-1">Label / Apelido</label>
+                        <input type="text" id="qrLabel" required
+                            class="w-full bg-[#0b0f19] border border-gray-800 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500 text-white"
+                            placeholder="ex: Loja Cliente SP">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-gray-400 mb-1">ID / Chave da
+                            Rota</label>
+                        <input type="text" id="qrId" required
+                            class="w-full bg-[#0b0f19] border border-gray-800 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500 text-white"
+                            placeholder="ex: loja-sp">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-gray-400 mb-1">URL de Destino
+                            Final</label>
+                        <input type="url" id="qrUrl" required
+                            class="w-full bg-[#0b0f19] border border-gray-800 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500 text-white"
+                            placeholder="https://site.com">
+                    </div>
+                    <button type="submit"
+                        class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-3 rounded-xl transition shadow-lg shadow-indigo-600/20 text-sm">
+                        Salvar e Gerar Rota
+                    </button>
+                </form>
+
+                <div class="border-t border-gray-800 pt-6 text-center">
+                    <p class="text-xs font-semibold uppercase text-gray-400 mb-3">QR Code Preview Dinâmico</p>
+                    <div id="qrcode"
+                        class="bg-white p-4 rounded-xl inline-block shadow-lg min-h-[160px] min-w-[160px] flex items-center justify-center">
+                        <span class="text-gray-400 text-xs">Preencha os campos para gerar</span>
+                    </div>
+                    <div id="qrLinkInfo" class="mt-3 text-xs text-gray-400 break-all mb-3"></div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Modal Flutuante para Visualizar o QR Code -->
+    <div id="qrModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div
+            class="bg-[#1e293b] border border-gray-800 rounded-2xl p-6 max-w-sm w-full text-center relative shadow-2xl space-y-4">
+            <button onclick="fecharModal()"
+                class="absolute top-4 right-4 text-gray-400 hover:text-white bg-gray-800/50 p-2 rounded-full transition">
+                <i class="ph ph-x text-base"></i>
+            </button>
+            <h3 class="font-bold text-lg text-white flex items-center justify-center gap-2">
+                <i class="ph ph-qr-code text-indigo-500 text-xl"></i> Visualizar QR Code
+            </h3>
+
+            <div id="modalQrContainer" class="bg-white p-4 rounded-xl inline-block shadow-inner"></div>
+
+            <div>
+                <h4 id="modalLabel" class="font-bold text-white text-base"></h4>
+                <p id="modalIdText" class="text-xs text-indigo-400 font-mono mt-0.5"></p>
+                <p id="modalUrlText" class="text-xs text-gray-400 truncate max-w-[280px] mx-auto mt-1"></p>
+            </div>
+
+            <div class="space-y-2 pt-2">
+                <button onclick="baixarModalPNG()"
+                    class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium py-3 rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20">
+                    <i class="ph ph-download-simple text-base"></i> Baixar QR Code (PNG com Fundo Branco)
+                </button>
+                <button onclick="fecharModal()"
+                    class="w-full bg-[#0b0f19] hover:bg-gray-800 text-gray-300 text-xs font-medium py-2.5 rounded-xl border border-gray-800 transition">
+                    Fechar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script de Funcionalidades e Modal -->
+    <script>
+        let listaGlobal = [];
+
+        async function carregarCodigos() {
+            try {
+                const response = await fetch('/api/codes');
+                listaGlobal = await response.json();
+                renderizarLista(listaGlobal);
+            } catch (err) {
+                console.error('Erro ao carregar:', err);
+            }
+        }
+
+        function renderizarLista(codigos) {
+            const container = document.getElementById('qrList');
+            container.innerHTML = '';
+
+            document.getElementById('statTotal').innerText = codigos.length;
+            document.getElementById('statRoutes').innerText = codigos.length;
+
+            if (codigos.length === 0) {
+                container.innerHTML = '<div class="bg-[#1e293b]/40 border border-gray-800 p-6 rounded-2xl text-center text-gray-400 text-sm">Nenhum QR code cadastrado.</div>';
+                return;
+            }
+
+            codigos.forEach(item => {
+                const linkRedirecionamento = `${window.location.origin}/r/${item.id}`;
+
+                const card = document.createElement('div');
+                card.className = 'bg-[#1e293b]/60 border border-gray-800 p-5 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:border-gray-700 transition';
+                card.innerHTML = `
+                    <div class="space-y-1">
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-white text-base">${item.label || item.id}</span>
+                            <span class="bg-indigo-500/10 text-indigo-400 text-[10px] px-2 py-0.5 rounded-full font-semibold">ID: ${item.id}</span>
+                        </div>
+                        <p class="text-xs text-gray-400 flex items-center gap-1">
+                            <i class="ph ph-arrow-bend-down-right"></i> 
+                            <a href="${item.url}" target="_blank" class="hover:underline text-indigo-400 truncate max-w-xs">${item.url}</a>
+                        </p>
+                        <p class="text-[11px] text-gray-500 font-mono">Link: ${linkRedirecionamento}</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                        <button onclick="abrirModal('${item.id}', '${item.label || item.id}', '${item.url}', '${linkRedirecionamento}')" class="bg-[#0b0f19] hover:bg-gray-800 text-gray-300 text-xs px-3 py-2 rounded-xl border border-gray-800 transition flex items-center gap-1 font-medium">
+                            <i class="ph ph-qr-code text-sm"></i> Ver
+                        </button>
+                        <button onclick="copiarLink('${linkRedirecionamento}')" class="bg-[#0b0f19] hover:bg-gray-800 text-gray-300 text-xs px-3 py-2 rounded-xl border border-gray-800 transition flex items-center gap-1 font-medium">
+                            <i class="ph ph-copy text-sm"></i> Copiar
+                        </button>
+                        <a href="${linkRedirecionamento}" target="_blank" class="bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 text-xs px-3 py-2 rounded-xl transition flex items-center gap-1 font-medium">
+                            <i class="ph ph-play text-sm"></i> Testar
+                        </a>
+                        <button onclick="preencherEdicao('${item.id}', '${item.label || ''}', '${item.url}')" class="bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 text-xs px-3 py-2 rounded-xl transition flex items-center gap-1 font-medium">
+                            <i class="ph ph-pencil text-sm"></i> Editar
+                        </button>
+                        <button onclick="deletarCodigo('${item.id}')" class="bg-red-600/10 hover:bg-red-600/20 text-red-400 text-xs px-3 py-2 rounded-xl transition flex items-center gap-1 font-medium">
+                            <i class="ph ph-trash text-sm"></i>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function filtrarCodigos() {
+            const termo = document.getElementById('searchInput').value.toLowerCase();
+            const filtrados = listaGlobal.filter(item =>
+                item.id.toLowerCase().includes(termo) ||
+                (item.label && item.label.toLowerCase().includes(termo)) ||
+                item.url.toLowerCase().includes(termo)
+            );
+            renderizarLista(filtrados);
+        }
+
+        function abrirModal(id, label, url, linkRedirecionamento) {
+            document.getElementById('modalLabel').innerText = label;
+            document.getElementById('modalIdText').innerText = `?id=${id}`;
+            document.getElementById('modalUrlText').innerText = url;
+
+            const container = document.getElementById('modalQrContainer');
+            container.innerHTML = '';
+
+            new QRCode(container, {
+                text: linkRedirecionamento,
+                width: 180,
+                height: 180,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+
+            document.getElementById('qrModal').classList.remove('hidden');
+            document.getElementById('qrModal').classList.add('flex');
+        }
+
+        function fecharModal() {
+            document.getElementById('qrModal').classList.remove('flex');
+            document.getElementById('qrModal').classList.add('hidden');
+        }
+
+        function baixarModalPNG() {
+            const img = document.querySelector('#modalQrContainer img');
+            const canvas = document.querySelector('#modalQrContainer canvas');
+            let dataURL = '';
+
+            if (img) {
+                dataURL = img.src;
+            } else if (canvas) {
+                dataURL = canvas.toDataURL("image/png");
+            }
+
+            if (dataURL) {
+                const link = document.createElement('a');
+                link.href = dataURL;
+                link.download = 'qrcode-dinamico.png';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } else {
+                alert('Erro ao gerar imagem.');
+            }
+        }
+
+        function copiarLink(link) {
+            navigator.clipboard.writeText(link);
+            alert('Link copiado para a área de transferência: ' + link);
+        }
+
+        function preencherEdicao(id, label, url) {
+            document.getElementById('qrId').value = id;
+            document.getElementById('qrLabel').value = label;
+            document.getElementById('qrUrl').value = url;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        async function deletarCodigo(id) {
+            if (confirm(`Tem certeza que deseja excluir a rota '${id}'?`)) {
+                try {
+                    const response = await fetch(`/api/codes/${id}`, { method: 'DELETE' });
+                    const result = await response.json();
+                    if (response.ok && result.success) {
+                        carregarCodigos();
+                    } else {
+                        alert('Erro ao excluir.');
+                    }
+                } catch (err) {
+                    console.error('Erro:', err);
+                }
+            }
+        }
+
+        document.getElementById('qrForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const id = document.getElementById('qrId').value.trim();
+            const label = document.getElementById('qrLabel').value.trim();
+            const url = document.getElementById('qrUrl').value.trim();
+
+            try {
+                const response = await fetch('/api/codes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id, label, url })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    document.getElementById('qrForm').reset();
+                    const linkRedirecionamento = `${window.location.origin}/r/${id}`;
+
+                    // Também atualiza o preview da direita
+                    const containerQR = document.getElementById('qrcode');
+                    containerQR.innerHTML = '';
+                    new QRCode(containerQR, { text: linkRedirecionamento, width: 140, height: 140 });
+                    document.getElementById('qrLinkInfo').innerHTML = `Ativo: <b class="text-indigo-400">${linkRedirecionamento}</b>`;
+
+                    carregarCodigos();
+                } else {
+                    alert('Erro ao salvar: ' + (result.error || 'Desconhecido'));
+                }
+            } catch (err) {
+                console.error('Erro:', err);
+                alert('Erro ao se conectar com o servidor.');
+            }
+        });
+
+        carregarCodigos();
+    </script>
+</body>
+
+</html>
