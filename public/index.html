@@ -272,20 +272,36 @@
         }
 
         function baixarModalPNG() {
-            const img = document.querySelector('#modalQrContainer img');
-            const canvas = document.querySelector('#modalQrContainer canvas');
-            let dataURL = '';
+            const container = document.getElementById('modalQrContainer');
+            const img = container.querySelector('img');
+            const canvas = container.querySelector('canvas');
 
-            if (img) {
-                dataURL = img.src;
-            } else if (canvas) {
-                dataURL = canvas.toDataURL("image/png");
+            const tempCanvas = document.createElement('canvas');
+            const ctx = tempCanvas.getContext('2d');
+
+            let sourceImage = null;
+
+            if (canvas) {
+                sourceImage = canvas;
+            } else if (img) {
+                sourceImage = img;
             }
 
-            if (dataURL) {
+            if (sourceImage) {
+                const size = 400;
+                const padding = 40;
+                tempCanvas.width = size;
+                tempCanvas.height = size;
+
+                ctx.fillStyle = "#FFFFFF";
+                ctx.fillRect(0, 0, size, size);
+
+                ctx.drawImage(sourceImage, padding, padding, size - (padding * 2), size - (padding * 2));
+
+                const dataURL = tempCanvas.toDataURL("image/png");
                 const link = document.createElement('a');
                 link.href = dataURL;
-                link.download = 'qrcode-dinamico.png';
+                link.download = 'qrcode-profissional.png';
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
