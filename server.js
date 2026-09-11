@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { MongoClient } = require('mongodb');
+const { MongoClient, ServerApiVersion } = require('mongodb');
 const path = require('path');
 require('dotenv').config();
 
@@ -11,7 +11,17 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 const uri = process.env.MONGODB_URI || process.env.DATABASE_URL;
-const client = new MongoClient(uri);
+
+// Configuração segura com opções explícitas de TLS/SSL para evitar o erro 80
+const client = new MongoClient(uri, {
+    serverApi: {
+        version: ServerApiVersion.v1,
+        strict: true,
+        deprecationErrors: true,
+    },
+    tls: true,
+    tlsAllowInvalidCertificates: true
+});
 
 let dbInstance = null;
 
