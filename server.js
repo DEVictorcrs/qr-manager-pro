@@ -12,7 +12,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const uri = process.env.MONGODB_URI || process.env.DATABASE_URL;
 
-// Configuração segura com opções explícitas de TLS/SSL para evitar o erro 80
 const client = new MongoClient(uri, {
     serverApi: {
         version: ServerApiVersion.v1,
@@ -62,9 +61,9 @@ app.get('/api/codes', async (req, res) => {
     }
 });
 
-// Criar ou Atualizar (Upsert)
+// Criar ou Atualizar (Upsert) incluindo o label
 app.post('/api/codes', async (req, res) => {
-    const { id, url } = req.body;
+    const { id, url, label } = req.body;
     if (!id || !url) {
         return res.status(400).json({ error: 'ID e URL são obrigatórios.' });
     }
@@ -76,13 +75,14 @@ app.post('/api/codes', async (req, res) => {
             $set: {
                 id,
                 url,
+                label: label || id, // Salva o label ou usa o ID como fallback
                 created_at: new Date()
             }
         };
         const options = { upsert: true, returnDocument: 'after' };
         
         const result = await collection.findOneAndUpdate(filter, update, options);
-        res.json({ success: true, data: result || { id, url } });
+        res.json({ success: true, data: result || { id, url, label } });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
