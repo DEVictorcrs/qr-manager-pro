@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const { MongoClient, ServerApiVersion } = require('mongodb');
 const path = require('path');
+const https = require('https'); // Adicionado para fazer o auto-ping
 require('dotenv').config();
 
 const app = express();
@@ -31,6 +32,11 @@ async function getCollection() {
     }
     return dbInstance.collection('qrcodes');
 }
+
+// Rota de Health Check para manter o servidor acordado
+app.get('/health', (req, res) => {
+    res.status(200).send('OK - Servidor ativo');
+});
 
 // Rota de Redirecionamento Direto
 app.get('/r/:id', async (req, res) => {
@@ -75,7 +81,7 @@ app.post('/api/codes', async (req, res) => {
             $set: {
                 id,
                 url,
-                label: label || id, // Salva o label ou usa o ID como fallback
+                label: label || id,
                 created_at: new Date()
             }
         };
@@ -104,4 +110,17 @@ app.delete('/api/codes/:id', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`SERVIDOR MONGODB RODANDO NA PORTA ${PORT} COM SUCESSO!`));
+app.listen(PORT, () => {
+    console.log(`SERVIDOR MONGODB RODANDO NA PORTA ${PORT} COM SUCESSO!`);
+
+    // Mecanismo de Auto-Ping Interno (A cada 10 minutos)
+    const APP_URL = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+    
+    setInterval(() => {
+        https.get(`${APP_URL}/health`, (res) => {
+            console.log(`Auto-ping enviado com sucesso. Status: ${res.statusCode}`);
+        }).on('error', (err) => {
+            console.error('Erro ao enviar auto-ping:', err.message);
+        });
+    }, 10 * 60 * 1000); // 10 minutos em milissegundos
+});
